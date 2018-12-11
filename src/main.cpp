@@ -1,6 +1,16 @@
 #include <Arduino.h>
 #include <OneWire.h>
 #include <DallasTemperature.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+
+#define SCREEN_WIDTH 128 // OLED display width, in pixels
+#define SCREEN_HEIGHT 32 // OLED display height, in pixels
+
+// Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
+#define OLED_RESET     4 // Reset pin # (or -1 if sharing Arduino reset pin)
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+
 #define ONE_WIRE_BUS 2
 #define PUBLISH_DELAY 3000
 #define SP_MAX 90
@@ -51,6 +61,19 @@ void discretRegul(float pv, float sp, float deadband, int outport ) {
   }
 }
 
+void drawscreen1() {
+display.clearDisplay();
+display.setTextSize(1);             // Normal 1:1 pixel scale
+display.setTextColor(WHITE);        // Draw white text
+display.setCursor(0,0);             // Start at top-left corner
+display.print(F("Temperature: "));
+display.print(t);
+display.print(F(" Уставка: "));
+display.print(sp);
+display.print(F(" Состояние: "));
+display.println((digitalRead(Relay_pin) == HIGH) ? "Остываем" : "Греем");
+}
+
 
 void setup() {
   sensors.begin();
@@ -61,6 +84,12 @@ void setup() {
   // setup serial communication
   Serial.begin(9600);
 
+  if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Address 0x3C for 128x32
+    Serial.println(F("SSD1306 allocation failed"));
+    for(;;); // Don't proceed, loop forever
+  }
+  // Clear the buffer
+  display.clearDisplay();
 }
 
 void loop() {
