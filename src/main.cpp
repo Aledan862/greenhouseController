@@ -32,6 +32,23 @@ float sp;
 String strData = "";
 boolean recievedFlag = true;
 
+// 'heat', 18x18px
+const unsigned char heat [] PROGMEM = {
+	0xfd, 0xb7, 0xc0, 0xfb, 0x6f, 0xc0, 0xfd, 0xb7, 0xc0, 0xfb, 0x6f, 0xc0, 0xff, 0xff, 0x80, 0xe4,
+	0x93, 0x80, 0xdb, 0x6d, 0x80, 0xdb, 0x6d, 0x80, 0xdb, 0x6d, 0x80, 0x1b, 0x6c, 0x00, 0xdb, 0x6d,
+	0xc0, 0xdb, 0x6d, 0xc0, 0xdb, 0x6d, 0xc0, 0xdb, 0x6d, 0xc0, 0xdb, 0x6d, 0xc0, 0xdb, 0x6d, 0xc0,
+	0xdb, 0x6d, 0xc0, 0xe4, 0x93, 0xc0
+};
+
+// 'cool', 18x18px
+const unsigned char cool [] PROGMEM = {
+	0xff, 0xff, 0xc0, 0xff, 0xff, 0xc0, 0xff, 0xff, 0xc0, 0xff, 0xff, 0xc0, 0xff, 0xff, 0x80, 0xe4,
+	0x93, 0x80, 0xdb, 0x6d, 0x80, 0xdb, 0x6d, 0x80, 0xdb, 0x6d, 0x80, 0x1b, 0x6c, 0x00, 0xdb, 0x6d,
+	0xc0, 0xdb, 0x6d, 0xc0, 0xdb, 0x6d, 0xc0, 0xdb, 0x6d, 0xc0, 0xdb, 0x6d, 0xc0, 0xdb, 0x6d, 0xc0,
+	0xdb, 0x6d, 0xc0, 0xe4, 0x93, 0xc0
+};
+
+
 void currentStatus() {
   Serial.print(F("Temperature: "));
   Serial.print(t);
@@ -100,18 +117,26 @@ void drawscreen1() {
 display.display();
 display.clearDisplay();
 display.setTextSize(1);
-display.fillRoundRect(0, 0, display.width(), 14 , 4, WHITE);
-display.setTextColor(BLACK);        // Draw black text
-display.setCursor(10,3);             // Start at top-center
-display.println(utf8rus(F("ТЕМПЕРАТУРА")));
+display.fillRect(0, 0, 20, 20, WHITE);
+if (digitalRead(Relay_pin) == HIGH) {
+  display.drawBitmap(1, 1, cool, 18, 18, BLACK);
+} else {
+  display.drawBitmap(1, 1, heat, 18, 18, BLACK);
+};
+
+//display.println(utf8rus(F("ТЕМПЕРАТУРА")));
+display.setCursor(22,0);
 display.setTextSize(2);
 display.setTextColor(WHITE);
-display.setCursor(0, 15);
-display.print(t, 1);
-display.setCursor(display.width()/2, 15);
-display.println(sp);
+display.print(t, 2); display.print("\xB0C");
+display.setCursor(32, 15);
+display.setTextSize(1);
+display.print(sp, 1); display.print("\xB0C");
 //display.setTextSize(1);
-display.fillCircle(display.width()-8, 7, 4, (digitalRead(Relay_pin) == HIGH) ? WHITE : BLACK);
+//display.fillCircle(display.width()-8, 7, 4, (digitalRead(Relay_pin) == HIGH) ? WHITE : BLACK);
+
+
+//(digitalRead(Relay_pin) == HIGH) ? heat : cool)
 //display.println(utf8rus(F("АБВГДЕЖЗИЙКЛМНОП")));
 //display.fillCircle(display.width()-12, 3, 4, WHITE)
 }
