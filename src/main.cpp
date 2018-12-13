@@ -23,8 +23,8 @@ OneWire oneWire(ONE_WIRE_BUS);
 // Pass our oneWire reference to Dallas Temperature.
 DallasTemperature sensors(&oneWire);
 
-DeviceAddress Thermometer1 = { 0x28, 0x85, 0xC7, 0x5B, 0x1E, 0x13, 0x01, 0x79 }; //28 85 C7 5B 1E 13 1 79
-int Relay_pin = 5;
+DeviceAddress Thermometer1 = { 0x28, 0x69, 0x34, 0x77, 0x91, 0x0B, 0x02, 0xE2};
+int Relay_pin = 4;
 int sp_temperature_Pin = A0;
 float t;
 long previousMillis;
@@ -150,13 +150,16 @@ void testdrawstyles(void) {
 }
 
 
-
 void setup() {
   sensors.begin();
   // set the resolution to 10 bit (good enough?)
   sensors.setResolution(Thermometer1, 10);
   // setup output pins
   pinMode(Relay_pin, OUTPUT);
+	for (int8_t i=7; i<11; i+=1){
+		pinMode(i, OUTPUT);
+	};
+
   // setup serial communication
   Serial.begin(9600);
 
@@ -175,13 +178,15 @@ void loop() {
   sensors.requestTemperatures();
   t = getTemperature(Thermometer1);
   discretRegul(t, sp , 2.0, Relay_pin);
-
+	for (int8_t i=7; i<11; i+=1){
+		digitalWrite(i, (digitalRead(i) == HIGH) ? LOW : HIGH);
+		delay(200);
+	};
   // it's time to send new data?
   if (millis() - previousMillis > PUBLISH_DELAY) {
     currentStatus();
     previousMillis = millis();
   }
-  t = 45.0;
   drawscreen1();
   // Wait 1 seconds before next cicle
   delay(1000);
