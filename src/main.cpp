@@ -1,23 +1,38 @@
 #include <Arduino.h>
-#include <OneWire.h>
+//#include <OneWire.h>
 #include <DallasTemperature.h>
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
-
+#include <Ethernet.h>
+#include <PubSubClient.h>
 
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 32 // OLED display height, in pixels
 
 // Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
 #define OLED_RESET 4 // Reset pin # (or -1 if sharing Arduino reset pin)
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+Adafruit_SSD1306 display(128, 32, &Wire, OLED_RESET);
 
 #define ONE_WIRE_BUS 2
 #define THERM_NUM 2  //количество термометров
 #define AI_NUM 4     // количество аналогов
 #define DO_NUM 4     // дискретные выходы
 #define PUBLISH_DELAY 5000
+#define CLIENT_ID "GHC2"
+#define TOPIC_TEMP  "GHC2/temp"
+#define TOPIC_OUT "GHC2/relay"
+#define TOPIC_TEMP_SP "GHC2/temp_sp"
+//setup ethernet communication-------------------------------------------------
+IPAddress mqttServer(185,228,232,60);
 
+// MAC-адрес нашего устройства
+byte mac[] = { 0x00, 0x2A, 0xF6, 0x12, 0x68, 0xFC };
+// ip-адрес устройства
+byte ip[] = { 192, 168, 0, 52 };
+
+EthernetClient ethClient;
+PubSubClient clt(ethClient);
+//-----------------------------------------------------------------------------
 // Setup a oneWire instance to communicate with any OneWire devices
 OneWire oneWire(ONE_WIRE_BUS);
 
@@ -30,8 +45,6 @@ DeviceAddress Therm_Address [THERM_NUM] ={
 float a [AI_NUM];
 float therm [THERM_NUM];
 
-float sp;
-String strData = "";
 boolean recievedFlag = true;
 boolean k [DO_NUM+1];
 
@@ -39,7 +52,34 @@ boolean k [DO_NUM+1];
 volatile boolean flag;
 uint8_t counter = 1;
 long previousMillis;
+//------------------------------------------------------------------------------
+void callback(char* topic, byte* payload, unsigned int length) {
+  String receivedString;
+  Serial.print(F("Message arrived ["));
+  Serial.print(topic);
+  Serial.print(F("] "));
 
+  for (unsigned int i = 0; i < length; i++) {
+    receivedString += (char)payload[i];
+    }
+   if (strcmp(topic,"GHC2/in") == 0) {
+    (receivedString == "ON") ? digitalWrite(4, HIGH) : digitalWrite(4, LOW);
+    (receivedString == "ON") ? Serial.println("on") : Serial.println("off");
+    }
+}
+
+long lastReconnectAttempt = 0;
+
+boolean reconnect() {
+  if (clt.connect(CLIENT_ID)) {
+    // Once connected, publish an announcement...
+    clt.publish("GHC2/Status","reconnected");
+    // ... and resubscribe
+    clt.subscribe("GHC2/in");
+  }
+  return clt.connected();
+}
+//-----------------------------------------------------------------------------
 float getTemperature(DeviceAddress deviceAddress) {
 
   float tempC = sensors.getTempC(deviceAddress);
@@ -144,6 +184,7 @@ display.display();
 display.clearDisplay();
 }
 
+/*
 void drawscreenHumTempAir() {
   display.clearDisplay();
   display.setTextSize(1);
@@ -157,8 +198,8 @@ void drawscreenHumTempAir() {
   display.display();
   display.clearDisplay();
 }
-
-
+*/
+/*
 void drawscreenRelayStatus() {
 int x = display.width() / (DO_NUM + 1);
 int y = display.height()/2;
@@ -172,7 +213,7 @@ int r = (x / 2) - 2;
     display.display();
   }
 }
-
+*/
 
 void change_screen () {
   if (millis() - previousMillis > 300) {
@@ -185,7 +226,7 @@ void change_screen () {
 void drawscreen(){
   if (counter < 3){
     drawscreenTempMoistSoil(counter);
-  } else {
+  } /*else {
 
     switch (counter) {
       case 3:
@@ -194,9 +235,8 @@ void drawscreen(){
       case 4:
       drawscreenRelayStatus();
       break;
-      }
+    }*/
   }
-}
 
 void setup() {
   sensors.begin();
@@ -221,16 +261,16 @@ void setup() {
   // setup serial communication
   Serial.begin(9600);
   // Clear the buffer
-
+/*
   for (uint8_t i = 0; i<DO_NUM+1; i++){
     Serial.print(k[i]); Serial.print(" ");
   }
   Serial.print("\n");
-
-  Serial.println("Стартуем\n");
+*/
+  Serial.println(F("Стартуем\n"));
   if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Address 0x3C for 128x32
     Serial.println(F("SSD1306 allocation failed"));
-    for(;;); // Don't proceed, loop forever
+    //for(;;); // Don't proceed, loop forever
   }
 
   // Show initial display buffer contents on the screen --
@@ -239,18 +279,22 @@ void setup() {
   display.clearDisplay();
   display.cp437(true);
   //drawscreen1();
-  Serial.println("все 0\n");
-  for (uint8_t i=7; i < 11; i++){
-    digitalWrite(i, false);
-  }
-delay(200);
+  Serial.println(F("все 0\n"));
 
-for (uint8_t i=7; i < 11; i++){
-  digitalWrite(i, HIGH);
-  delay(100);
-  digitalWrite(i, LOW);
-  }
+clt.setServer(mqttServer, 1883);
+clt.setCallback(callback);
+Ethernet.begin(mac, ip);
+lastReconnectAttempt = 0;
+Serial.println(F("Ready to send data"));
+}
 
+void sendData() {
+  char msgBuffer[20];
+  if (clt.connect(CLIENT_ID)) {
+    clt.publish(TOPIC_TEMP, dtostrf(therm[0], 6, 2, msgBuffer));
+    clt.publish(TOPIC_TEMP_SP, dtostrf(therm[1], 6, 2, msgBuffer));
+    clt.publish(TOPIC_OUT, (k[0] == HIGH) ? "Остываем" : "Греем");
+  }
 }
 
 void loop() {
@@ -288,4 +332,21 @@ void loop() {
 
   // Wait 1 seconds before next cicle
   //delay(PUBLISH_DELAY);
+
+  if (!clt.connected()) {
+      long now = millis();
+      if (now - lastReconnectAttempt > PUBLISH_DELAY) {
+        lastReconnectAttempt = now;
+        sendData();
+        // Attempt to reconnect
+        if (reconnect()) {
+          lastReconnectAttempt = 0;
+        }
+      }
+    } else {
+      // Client connected
+
+      clt.loop();
+    }
+
 }
