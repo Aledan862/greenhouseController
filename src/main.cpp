@@ -7,8 +7,10 @@
 #include <UIPEthernet.h>
 #include <PubSubClient.h>
 
+
 //#define SCREEN_WIDTH 128 // OLED display width, in pixels
 //#define SCREEN_HEIGHT 32 // OLED display height, in pixels
+
 
 // Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
 //#define OLED_RESET 4 // Reset pin # (or -1 if sharing Arduino reset pin)
@@ -16,6 +18,7 @@
 
 
 #define ONE_WIRE_BUS 2
+
 #define THERM_NUM 2  //количество термометров
 #define AI_NUM 4     // количество аналогов
 #define DO_START 6  //с какого пина начинается отсчет
@@ -36,6 +39,8 @@ IPAddress ip(192, 168, 0, 115);
 EthernetClient ethClient;
 PubSubClient clt(ethClient);
 //-----------------------------------------------------------------------------
+
+#define PUBLISH_DELAY 3000
 // Setup a oneWire instance to communicate with any OneWire devices
 OneWire oneWire(ONE_WIRE_BUS);
 
@@ -73,6 +78,7 @@ long NewTime, OldTime;
     }
 }*/
 
+
 /*
 void reconnect() {
 //  Serial.println(F("start reconnect function..."));
@@ -92,6 +98,7 @@ void reconnect() {
       //delay(5000);
     //}
   }
+
 }
 */
 
@@ -164,38 +171,8 @@ void discretRegul(float pv, float sp, float deadband, int outport ) {
     digitalWrite (outport, LOW);
   }
 }
-/*
-String utf8rus(String source) {
-  int i,k;
-  String target;
-  unsigned char n;
-  char m[2] = { '0', '\0' };
 
-  k = source.length(); i = 0;
 
-  while (i < k) {
-    n = source[i]; i++;
-
-    if (n >= 0xC0) {
-      switch (n) {
-        case 0xD0: {
-          n = source[i]; i++;
-          if (n == 0x81) { n = 0xA8; break; }
-          if (n >= 0x90 && n <= 0xBF) n = n + 0x30;
-          break;
-        }
-        case 0xD1: {
-          n = source[i]; i++;
-          if (n == 0x91) { n = 0xB8; break; }
-          if (n >= 0x80 && n <= 0x8F) n = n + 0x70;
-          break;
-        }
-      }
-    }
-    m[0] = n; target = target + String(m);
-  }
-return target;
-}
 */
 void drawscreenTempMoistSoil(uint8_t zoneNum) {
 /*
@@ -288,6 +265,7 @@ void setup(){
   pinMode(3, INPUT_PULLUP);
   attachInterrupt(1, change_screen, FALLING);
   // setup output pins
+
   for (uint8_t i = DO_START; i < DO_START+DO_NUM; i++){
     pinMode(i, OUTPUT);
   }
@@ -299,6 +277,8 @@ void setup(){
     k[i+1] = 0;
     a[i] = 0;
   }
+
+
 
   // setup serial communication
   Serial.begin(9600);
@@ -344,6 +324,7 @@ void sendData() {
   //  clt.publish(TOPIC_OUT, (k[0] == HIGH) ? "Остываем" : "Греем");
     Serial.println(dtostrf(therm[0], 6, 2, msgBuffer));
   }
+
 }
 
 void loop() {
@@ -356,6 +337,7 @@ void loop() {
   }
 */
 //  writeDOs();
+
   if (millis() - previousMillis > PUBLISH_DELAY) {
       LD.clearDisplay();
   //  drawscreen();
@@ -364,6 +346,7 @@ void loop() {
       Serial.print("outTopic:");Serial.println("test");
       previousMillis = millis();
   }
+
   Serial.print(millis());
   // it's time to send new data?
    /*if (millis() - previousMillis > PUBLISH_DELAY) {
