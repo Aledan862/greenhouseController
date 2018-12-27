@@ -4,8 +4,8 @@
 //#include <Adafruit_GFX.h>
 //#include <Adafruit_SSD1306.h>
 #include "ASOLED.h"
-#include <UIPEthernet.h>
-#include <PubSubClient.h>
+//#include <UIPEthernet.h>
+//#include <PubSubClient.h>
 
 
 //#define SCREEN_WIDTH 128 // OLED display width, in pixels
@@ -28,7 +28,7 @@
 #define TOPIC_TEMP  "GHC2/temp"
 #define TOPIC_OUT "GHC2/relay"
 #define TOPIC_TEMP_SP "GHC2/temp_sp"
-//setup ethernet communication-------------------------------------------------
+/*/setup ethernet communication-------------------------------------------------
 IPAddress mqttServer(185,228,232,60);
 
 // MAC-адрес нашего устройства
@@ -38,9 +38,7 @@ IPAddress ip(192, 168, 0, 115);
 
 EthernetClient ethClient;
 PubSubClient clt(ethClient);
-//-----------------------------------------------------------------------------
-
-#define PUBLISH_DELAY 3000
+*///-----------------------------------------------------------------------------
 // Setup a oneWire instance to communicate with any OneWire devices
 OneWire oneWire(ONE_WIRE_BUS);
 
@@ -58,12 +56,12 @@ boolean k [DO_NUM+1];
 
 
 volatile boolean flag;
-uint8_t counter = 1;
+uint8_t counter;
 long previousMillis;
-
 long NewTime, OldTime;
 //------------------------------------------------------------------------------
-/*void callback(char* topic, byte* payload, unsigned int length) {
+/*
+void callback(char* topic, byte* payload, unsigned int length) {
   String receivedString;
   Serial.print(F("Message arrived ["));
   Serial.print(topic);
@@ -100,7 +98,7 @@ void reconnect() {
   }
 
 }
-*/
+
 
 long lastRecAtt = 0;
 
@@ -116,7 +114,7 @@ boolean reconnect() {
   Serial.print("#########################point2");
   return clt.connected();
 }
-
+*/
 //-----------------------------------------------------------------------------
 float getTemperature(DeviceAddress deviceAddress) {
 
@@ -173,7 +171,6 @@ void discretRegul(float pv, float sp, float deadband, int outport ) {
 }
 
 
-*/
 void drawscreenTempMoistSoil(uint8_t zoneNum) {
 /*
 display.clearDisplay();
@@ -234,25 +231,31 @@ void change_screen() {
   if (millis() - previousMillis > 300) {
     //flag =1;
     previousMillis = millis();
-    counter = ++counter % 3 + 1;
+    counter = ++counter % 4;
+    counter = (counter == 0) ? 1 : counter;
     OldTime = 0;
   }
 }
 
 void drawscreen() {
-  if (counter < 3){
-    drawscreenTempMoistSoil(counter);
-  } else {
+  if (counter == 0){
+    LD.clearDisplay();
+  } else{
 
-    switch (counter) {
-      case 3:
-      drawscreenHumTempAir();
-      break;
-      case 4:
-      //drawscreenRelayStatus();
-      break;
+    if (counter < 3){
+      drawscreenTempMoistSoil(counter);
+    } else {
+        switch (counter) {
+          case 3:
+          drawscreenHumTempAir();
+          break;
+          case 4:
+          //drawscreenRelayStatus();
+          break;
+      }
     }
   }
+
 }
 
 void setup(){
@@ -265,49 +268,23 @@ void setup(){
   pinMode(3, INPUT_PULLUP);
   attachInterrupt(1, change_screen, FALLING);
   // setup output pins
-
   for (uint8_t i = DO_START; i < DO_START+DO_NUM; i++){
     pinMode(i, OUTPUT);
   }
-	//pinMode(8, OUTPUT);
-	//pinMode(9, OUTPUT);
-	//pinMode(10, OUTPUT);
-
+  //setup memory table to zero
   for (byte i =0; i < 4; i++) {
     k[i+1] = 0;
     a[i] = 0;
   }
-
-
-
   // setup serial communication
   Serial.begin(9600);
-  // Clear the buffer
-/*
-  for (uint8_t i = 0; i<DO_NUM+1; i++){
-    Serial.print(k[i]); Serial.print(" ");
-  }
-  Serial.print("\n");
-*/
   Serial.println(F("Стартуем\n"));
-  //if(!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Address 0x3C for 128x32
-  //  Serial.println(F("SSD1306 allocation failed"));
-  //for(;;); // Don't proceed, loop forever
-
   LD.init();  //initialze OLED display
   LD.clearDisplay();
-
-  // Show initial display buffer contents on the screen --
-  // the library initializes this with an Adafruit splash screen.
-  //display.display();
-  //display.clearDisplay();
-  //display.cp437(true);
-  //drawscreen1();
-  //Serial.println(F("все 0\n"));
-
+/*----------------------------------------------------------------------
   clt.setServer(mqttServer, 1883);
   //clt.setCallback(callback);
-  Ethernet.begin(mac, ip);
+  //Ethernet.begin(mac, ip);
   Serial.println(F("Ethernet configured"));
   Serial.print(F("IP address: "));
   Serial.println(Ethernet.localIP());
@@ -326,64 +303,31 @@ void sendData() {
   }
 
 }
+//------------------------------------------------------------------------*/
+}
 
 void loop() {
-//  readThemperatures();
-//  readAIs();
-//  readDOs();
+  readThemperatures();
+  readAIs();
+  readDOs();
 /*
   for (uint8_t i=0; i < DO_NUM+1; i++){
     k[i]=(i == counter) ? 1 : 0;
   }
 */
-//  writeDOs();
+  writeDOs();
 
-  if (millis() - previousMillis > PUBLISH_DELAY) {
+NewTime = millis();
+  if (NewTime - OldTime > PUBLISH_DELAY) {
       LD.clearDisplay();
-  //  drawscreen();
-      //sendData();
+      drawscreen();
+      /*sendData();
       clt.publish("outTopic","test");
-      Serial.print("outTopic:");Serial.println("test");
-      previousMillis = millis();
+      Serial.print("outTopic:");Serial.println("test");*/
+      OldTime = millis();
   }
+if (NewTime - previousMillis > 5*PUBLISH_DELAY ) {
+  counter = 0;
+}
 
-  Serial.print(millis());
-  // it's time to send new data?
-   /*if (millis() - previousMillis > PUBLISH_DELAY) {
-     counter = (counter < 4) ? counter+1 : 1;
-     Serial.println(counter);
-     for (uint8_t i = 0; i<AI_NUM; i++){
-       Serial.print(a[i], 2); Serial.print(" ");
-     }
-     Serial.print("\n");
-     for (uint8_t i = 0; i<THERM_NUM; i++){
-       Serial.print(therm[i], 2); Serial.print(" ");
-     }
-     Serial.print("\n");
-     for (uint8_t i = 1; i<DO_NUM+1; i++){
-       Serial.print(k[i]); Serial.print(" ");
-     }
-     Serial.print("       K"); Serial.print(counter);
-     Serial.print("\n");
-     previousMillis = millis();
-   }*/
-
-  // Wait 1 seconds before next cicle
-  //delay(PUBLISH_DELAY);
-  if (!clt.connected()) {
-    long now = millis();
-    if (now - lastRecAtt > PUBLISH_DELAY) {
-      lastRecAtt = now;
-      Serial.print(F("#########################point1"));
-      // Attempt to reconnect
-      if (reconnect()) {
-        lastRecAtt = 0;
-        Serial.print(F("#########################point3"));
-      }
-    }
-  } else {
-    // Client connected
-    clt.loop();
-    Serial.println(F("##pointloop"));
-  }
 }
