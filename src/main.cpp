@@ -6,8 +6,7 @@
 #include "ASOLED.h"
 //#include <UIPEthernet.h>
 //#include <PubSubClient.h>
-
-
+#include <DHT.h>
 //#define SCREEN_WIDTH 128 // OLED display width, in pixels
 //#define SCREEN_HEIGHT 32 // OLED display height, in pixels
 
@@ -18,17 +17,17 @@
 
 
 #define ONE_WIRE_BUS 2
-
+#define AIRDATA 14    //подключение датчика влажности 14(A0)
 #define THERM_NUM 2  //количество термометров
-#define AI_NUM 4     // количество аналогов
+#define AI_NUM 5     // количество аналогов
 #define DO_START 6  //с какого пина начинается отсчет
 #define DO_NUM 4     // дискретные выходы
 #define PUBLISH_DELAY 5000
+/*/setup ethernet communication-------------------------------------------------
 #define CLIENT_ID "GHC2"
 #define TOPIC_TEMP  "GHC2/temp"
 #define TOPIC_OUT "GHC2/relay"
 #define TOPIC_TEMP_SP "GHC2/temp_sp"
-/*/setup ethernet communication-------------------------------------------------
 IPAddress mqttServer(185,228,232,60);
 
 // MAC-адрес нашего устройства
@@ -48,6 +47,10 @@ DeviceAddress Therm_Address [THERM_NUM] ={
    { 0x28, 0x69, 0x34, 0x77, 0x91, 0x0B, 0x02, 0xE2 },
    { 0x28, 0x85, 0xC7, 0x5B, 0x1E, 0x13, 0x01, 0x79 }
  };
+//Air measurement
+DHT air;
+uint32_t airDelay;
+
 float a [AI_NUM];
 float therm [THERM_NUM];
 
@@ -116,6 +119,7 @@ boolean reconnect() {
 }
 */
 //-----------------------------------------------------------------------------
+
 float getTemperature(DeviceAddress deviceAddress) {
 
   float tempC = sensors.getTempC(deviceAddress);
@@ -135,10 +139,14 @@ void readAIs () {
   // настройки диапазонов входных аналоговых сигналов
   long minmaxSetting [AI_NUM] [2] = {
     {0 , 5},     //канал 0
-    {10 , 100}   //канал 1
+    {0 , 100}   //канал 1
   };
-  for (byte i =0; i < AI_NUM; i++) {
-    a [i] = readAnalog(i, minmaxSetting[i][0], minmaxSetting[i][1]);
+  for (byte i =1; i < AI_NUM; i++) {
+    if (i<4) {
+      a [i] = readAnalog(i, minmaxSetting[i][0], minmaxSetting[i][1]);
+    } else {
+      a [i] = readAnalog(i+2, minmaxSetting[i][0], minmaxSetting[i][1]);
+    }
   }
 }
 
@@ -187,27 +195,19 @@ display.display();
 display.clearDisplay();
 */
 LD.printString_12x16(F("Почва Зона "),0,0); LD.printNumber((long)zoneNum,13,2);
-LD.printNumber(therm[zoneNum-1],2,3,6);
+LD.printNumber(therm[zoneNum-1],1,3,4); LD.printString_12x16("\xC2\xB0",60,4); LD.printString_12x16(F("C"));
+LD.printNumber(a[zoneNum],1,4,6);LD.printString_12x16(F("%"),60,6);
 //LD.clearDisplay();
 }
 
 
 void drawscreenHumTempAir() {
-  /*
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.setCursor(20,0);
-  display.println(utf8rus(F("Воздух")));
-  display.setCursor(0,10);
-  display.setTextSize(2);
-  display.setTextColor(WHITE);
-  display.print(therm[0], 0); display.print("\xB0"); display.print("C "); // Температура с датчика DTH
-  display.print("40"); display.print("%");                                 //влажность
-  display.display();
-  display.clearDisplay();
-  */
+  float humidity = air.getHumidity();
+  float temperature = air.getTemperature();
+
   LD.printString_12x16(F("Воздух"),0,0);
-  LD.printNumber(therm[0],2,4,2);
+  LD.printNumber(temperature,1,4,3); LD.printString_12x16("\xC2\xB0",60,3); LD.printString_12x16(F("C"));
+  LD.printNumber(humidity,1,4,5);LD.printString_12x16(F("%"),60,5);
   //LD.clearDisplay();
 }
 
@@ -264,9 +264,14 @@ void setup(){
   for (uint16_t i = 0; i<THERM_NUM; i++){
     sensors.setResolution(Therm_Address [i], 11);
     }
+  //Setup air sensor
+  air.setup(AIRDATA);
+  //airDelay = air.getMinimumSamplingPeriod();
+
   // setup input pins
-  pinMode(3, INPUT_PULLUP);
+  pinMode(3, INPUT_PULLUP);// button
   attachInterrupt(1, change_screen, FALLING);
+
   // setup output pins
   for (uint8_t i = DO_START; i < DO_START+DO_NUM; i++){
     pinMode(i, OUTPUT);
