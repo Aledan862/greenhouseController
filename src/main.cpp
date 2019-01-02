@@ -20,8 +20,8 @@
 #define AIRDATA 14    //подключение датчика влажности 14(A0)
 #define THERM_NUM 2  //количество термометров
 #define AI_NUM 5     // количество аналогов
-#define DO_START 6  //с какого пина начинается отсчет
-#define DO_NUM 4     // дискретные выходы
+#define DO_START 7  //с какого пина начинается отсчет
+#define DO_NUM 3     // дискретные выходы
 #define PUBLISH_DELAY 5000
 /*/setup ethernet communication-------------------------------------------------
 #define CLIENT_ID "GHC2"
@@ -44,8 +44,8 @@ OneWire oneWire(ONE_WIRE_BUS);
 // Pass our oneWire reference to Dallas Temperature.
 DallasTemperature sensors(&oneWire);
 DeviceAddress Therm_Address [THERM_NUM] ={
-   { 0x28, 0x69, 0x34, 0x77, 0x91, 0x0B, 0x02, 0xE2 },
-   { 0x28, 0x85, 0xC7, 0x5B, 0x1E, 0x13, 0x01, 0x79 }
+   { 0x28, 0x76, 0xAB, 0x77, 0x91, 0x11, 0x02, 0x4E  },
+   { 0x28, 0x69, 0x34, 0x77, 0x91, 0x0B, 0x02, 0xE2  }
  };
 //Air measurement
 DHT air;
@@ -120,6 +120,19 @@ boolean reconnect() {
 */
 //-----------------------------------------------------------------------------
 
+long sys_sec, sys_min, sys_hour;
+boolean firstexecution = true;
+int8_t last_sys_sec;
+void systemtime() {
+  sys_sec = (millis() / 1000)%60;
+  if ((last_sys_sec == 59) && (sys_sec == 0)) {
+    sys_min = (sys_min+1)%60;
+  }
+last_sys_sec = sys_sec;
+firstexecution = false;
+}
+
+
 float getTemperature(DeviceAddress deviceAddress) {
 
   float tempC = sensors.getTempC(deviceAddress);
@@ -176,6 +189,15 @@ void discretRegul(float pv, float sp, float deadband, int outport ) {
   } else if  ((pv < sp - deadband) and digitalRead(outport)) {
     digitalWrite (outport, LOW);
   }
+}
+
+
+long delayOn, delayOff;
+void timer () {
+  if (sys_min > delayOff) {
+      k[1] = 1;} else {
+        k[1]=0;
+      }
 }
 
 
@@ -238,7 +260,7 @@ void change_screen() {
 }
 
 void drawscreen() {
-  if (counter == 0){
+/*  if (counter == 0){
     LD.clearDisplay();
   } else{
 
@@ -254,8 +276,21 @@ void drawscreen() {
           break;
       }
     }
-  }
-
+  }*/
+switch (counter) {
+  case 0:
+    LD.clearDisplay();
+    break;
+  case 1:
+    drawscreenHumTempAir();
+    break;
+  case 2:
+    drawscreenTempMoistSoil(1);
+    break;
+  case 3:
+    drawscreenTempMoistSoil(2);
+    break;
+}
 }
 
 void setup(){
@@ -275,12 +310,17 @@ void setup(){
   // setup output pins
   for (uint8_t i = DO_START; i < DO_START+DO_NUM; i++){
     pinMode(i, OUTPUT);
+    digitalWrite(i, 1);
   }
   //setup memory table to zero
   for (byte i =0; i < 4; i++) {
     k[i+1] = 0;
     a[i] = 0;
   }
+  //setup timeouts
+  delayOn = 1 * 60000  ;  //1 минута
+  delayOff = 40 ;  //2 минута
+
   // setup serial communication
   Serial.begin(9600);
   Serial.println(F("Стартуем\n"));
@@ -312,6 +352,7 @@ void sendData() {
 }
 
 void loop() {
+  systemtime();
   readThemperatures();
   readAIs();
   readDOs();
@@ -320,9 +361,10 @@ void loop() {
     k[i]=(i == counter) ? 1 : 0;
   }
 */
+  timer();
   writeDOs();
 
-NewTime = millis();
+  NewTime = millis();
   if (NewTime - OldTime > PUBLISH_DELAY) {
       LD.clearDisplay();
       drawscreen();
@@ -334,5 +376,5 @@ NewTime = millis();
 if (NewTime - previousMillis > 5*PUBLISH_DELAY ) {
   counter = 0;
 }
-
+Serial.println(counter);
 }
