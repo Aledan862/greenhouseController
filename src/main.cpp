@@ -9,7 +9,7 @@
 #include <DHT.h>
 //#define SCREEN_WIDTH 128 // OLED display width, in pixels
 //#define SCREEN_HEIGHT 32 // OLED display height, in pixels
-
+#include <timeClass.cpp>
 
 // Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
 //#define OLED_RESET 4 // Reset pin # (or -1 if sharing Arduino reset pin)
@@ -38,6 +38,10 @@ IPAddress ip(192, 168, 0, 115);
 EthernetClient ethClient;
 PubSubClient clt(ethClient);
 *///-----------------------------------------------------------------------------
+//systemtimeobject
+
+SysTime sysTime;
+
 // Setup a oneWire instance to communicate with any OneWire devices
 OneWire oneWire(ONE_WIRE_BUS);
 
@@ -120,19 +124,6 @@ boolean reconnect() {
 */
 //-----------------------------------------------------------------------------
 
-long sys_sec, sys_min, sys_hour;
-boolean firstexecution = true;
-int8_t last_sys_sec;
-void systemtime() {
-  sys_sec = (millis() / 1000)%60;
-  if ((last_sys_sec == 59) && (sys_sec == 0)) {
-    sys_min = (sys_min+1)%60;
-  }
-last_sys_sec = sys_sec;
-firstexecution = false;
-}
-
-
 float getTemperature(DeviceAddress deviceAddress) {
 
   float tempC = sensors.getTempC(deviceAddress);
@@ -151,8 +142,10 @@ float readAnalog(int analogPin, long minimum, long maximum) {
 void readAIs () {
   // настройки диапазонов входных аналоговых сигналов
   long minmaxSetting [AI_NUM] [2] = {
-    {0 , 5},     //канал 0
-    {0 , 100}   //канал 1
+    {0 , 5},    //канал 0
+    {0 , 100},   //канал 1
+    {0 , 100},   //канал 2
+    {0 , 100}   //канал 3
   };
   for (byte i =1; i < AI_NUM; i++) {
     if (i<4) {
@@ -194,7 +187,7 @@ void discretRegul(float pv, float sp, float deadband, int outport ) {
 
 long delayOn, delayOff;
 void timer () {
-  if (sys_min > delayOff) {
+  if (sysTime.min > delayOff) {
       k[1] = 1;} else {
         k[1]=0;
       }
@@ -253,7 +246,7 @@ void change_screen() {
   if (millis() - previousMillis > 300) {
     //flag =1;
     previousMillis = millis();
-    counter = ++counter % 4;
+    counter = (counter+1) % 4;
     counter = (counter == 0) ? 1 : counter;
     OldTime = 0;
   }
@@ -352,7 +345,7 @@ void sendData() {
 }
 
 void loop() {
-  systemtime();
+  sysTime.tick();
   readThemperatures();
   readAIs();
   readDOs();
@@ -363,7 +356,7 @@ void loop() {
 */
   timer();
   writeDOs();
-
+  Serial.print(sysTime.hour);Serial.print(":");Serial.print(sysTime.min);Serial.print(":");Serial.println(sysTime.sec);
   NewTime = millis();
   if (NewTime - OldTime > PUBLISH_DELAY) {
       LD.clearDisplay();
@@ -376,5 +369,4 @@ void loop() {
 if (NewTime - previousMillis > 5*PUBLISH_DELAY ) {
   counter = 0;
 }
-Serial.println(counter);
 }
