@@ -18,11 +18,12 @@
 
 #define ONE_WIRE_BUS 2
 #define AIRDATA 14    //подключение датчика влажности 14(A0)
-#define THERM_NUM 2  //количество термометров
+#define THERM_NUM 3  //количество термометров
 #define AI_NUM 5     // количество аналогов
 #define DO_START 7  //с какого пина начинается отсчет
 #define DO_NUM 3     // дискретные выходы
 #define PUBLISH_DELAY 5000
+#define ONOFFPERIOD 5 //период работы таймера
 /*/setup ethernet communication-------------------------------------------------
 #define CLIENT_ID "GHC2"
 #define TOPIC_TEMP  "GHC2/temp"
@@ -49,7 +50,8 @@ OneWire oneWire(ONE_WIRE_BUS);
 DallasTemperature sensors(&oneWire);
 DeviceAddress Therm_Address [THERM_NUM] ={
    { 0x28, 0x76, 0xAB, 0x77, 0x91, 0x11, 0x02, 0x4E  },
-   { 0x28, 0x69, 0x34, 0x77, 0x91, 0x0B, 0x02, 0xE2  }
+   { 0x28, 0x69, 0x34, 0x77, 0x91, 0x0B, 0x02, 0xE2  },
+   { 0x28, 0x71, 0x3C, 0x77, 0x91, 0x13, 0x02, 0xBC  }
  };
 //Air measurement
 DHT air;
@@ -187,9 +189,11 @@ void discretRegul(float pv, float sp, float deadband, int outport ) {
 
 long delayOn, delayOff;
 void timer () {
-  if (sysTime.min > delayOff) {
-      k[1] = 1;} else {
-        k[1]=0;
+  uint8_t minutecounter = sysTime.min / ONOFFPERIOD;
+
+  if (minutecounter % 2) {
+      k[1] = 0;} else {
+        k[1]=1;
       }
 }
 
@@ -226,6 +230,12 @@ void drawscreenHumTempAir() {
   //LD.clearDisplay();
 }
 
+void drawscreenStreetTemp() {
+  LD.printString_12x16(F("Улица "),0,0);
+  LD.printNumber(therm[2],1,3,4); LD.printString_12x16("\xC2\xB0",60,4); LD.printString_12x16(F("C"));
+  //LD.clearDisplay();
+}
+
 /*
 void drawscreenRelayStatus() {
 int x = display.width() / (DO_NUM + 1);
@@ -246,7 +256,7 @@ void change_screen() {
   if (millis() - previousMillis > 300) {
     //flag =1;
     previousMillis = millis();
-    counter = (counter+1) % 4;
+    counter = (counter+1) % 5;
     counter = (counter == 0) ? 1 : counter;
     OldTime = 0;
   }
@@ -282,6 +292,9 @@ switch (counter) {
     break;
   case 3:
     drawscreenTempMoistSoil(2);
+    break;
+  case 4:
+    drawscreenStreetTemp();
     break;
 }
 }
@@ -356,7 +369,7 @@ void loop() {
 */
   timer();
   writeDOs();
-  Serial.print(sysTime.hour);Serial.print(":");Serial.print(sysTime.min);Serial.print(":");Serial.println(sysTime.sec);
+  //Serial.print(sysTime.hour);Serial.print(":");Serial.print(sysTime.min);Serial.print(":");Serial.println(sysTime.sec);
   NewTime = millis();
   if (NewTime - OldTime > PUBLISH_DELAY) {
       LD.clearDisplay();
